@@ -1,0 +1,142 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<title>Doogtopia Radio Admin</title>
+	<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.4.1/build/reset-fonts-grids/reset-fonts-grids.css" />
+  <link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.4.1/build/base/base-min.css" />
+  <link type="text/css" rel="stylesheet" href="http://yui.yahooapis.com/2.4.1/build/autocomplete/assets/skins/sam/autocomplete.css" />  
+  <link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.4.1/build/button/assets/skins/sam/button.css" />
+  <style type="text/css">
+    html { background: #dcc; }
+    #bd { background: #fed; padding: 5px; }
+    h1 { background: #fdc; padding: 5px; }
+    #buttons { background: #fdc; padding: 5px; }
+    hr { color: #000; border: 1px solid black; }
+  </style>
+</head>
+<body class="yui-skin-sam">
+<div id="doc2" class="yui-t6">
+    <div id="hd"><h1>Doogtopia Radio Admin</h1></div> 
+    <div id="bd">
+      <div id="yui-main">
+        <div class="yui-b">
+          <h2>Currently playing: <span id="nowplaying"></span></h2>
+          <h3>Next up: <span id="nextplaying"></span></h3>
+          <div id="jump-autocomplete" style="width:300px">
+            <label for="jump">Jump to song:</label>
+             <input type="text" id="jump" name="jump" />
+             <div id="jump-container"></div>
+          </div>
+        </div>
+      </div>
+      <div class="yui-b" id="buttons">
+        <input type="button" id="next-song-button" name="next-song-button" value="Next song" />
+        <input type="button" id="rescan-button" name="rescan-button" value="Rescan directories" />
+        <hr/>
+        <input type="button" id="shutdown-button" name="shutdown-button" value="Shutdown server" />
+      </div>
+    </div> 
+   <div id="ft"><!-- footer --></div> 
+</div>
+</body>
+<script type="text/javascript" src="http://yui.yahooapis.com/2.4.1/build/yahoo-dom-event/yahoo-dom-event.js"></script>
+<script type="text/javascript" src="http://yui.yahooapis.com/2.4.1/build/connection/connection-min.js"></script> 
+<script type="text/javascript" src="http://yui.yahooapis.com/2.4.1/build/element/element-beta-min.js"></script> 
+<script type="text/javascript" src="http://yui.yahooapis.com/2.4.1/build/button/button-min.js"></script> 
+<script type="text/javascript" src="http://yui.yahooapis.com/2.4.1/build/autocomplete/autocomplete-min.js"></script> 
+<script type="text/javascript">
+/*<![CDATA[*/
+  playlist = [];
+  current = -1;
+  function xhr(method, uri, callback) { 
+    return YAHOO.util.Connect.asyncRequest(method, uri, callback); 
+  }
+  function getPlaylist() {
+    if(playlist.length > 0) return;
+    var callback = {
+      success: function(o) {
+        playlist = o.responseText.split("\n");
+      }
+    };
+    xhr("GET", "http://localhost:8900/list/", callback);
+  }
+  function getCurrent() {
+    if(current >= 0) return;
+    var callback = {
+      success: function(o) {
+        current = parseInt(o.responseText);
+      }
+    };
+    xhr("GET", "http://localhost:8900/current/", callback);
+  }
+  function initButtons() {
+    var next = new YAHOO.widget.Button("next-song-button");
+    next.addListener("click", function() {
+      var callback = {success:function() {
+        location = location;
+      }};
+      xhr("GET", "/next_song/", callback);
+    });
+    var rescan = new YAHOO.widget.Button("rescan-button");
+    rescan.addListener("click", function() {
+      var callback = {success:function() {
+        location = location;
+      }};
+      xhr("GET", "/rescan/", callback);
+    });
+    var shutdown = new YAHOO.widget.Button("shutdown-button");
+    shutdown.addListener("click", function() {
+      var callback = {success:function() {
+        document.getElementById("nowplaying").innerHTML = "Stream shut down";
+      }};
+      xhr("GET", "/shutdown/", callback);
+    });
+  }
+  function initJump() {
+    if(playlist.length == 0) {
+      setTimeout(initJump, 50);
+      return;
+    }
+    var data = new YAHOO.widget.DS_JSArray(playlist);
+    data.queryMatchContains = true;
+    var jumpAC = new YAHOO.widget.AutoComplete("jump", "jump-container", data);
+    jumpAC.allowBrowserAutocomplete = false;
+    jumpAC.forceSelection = true;  
+    jumpAC.itemSelectEvent.subscribe(function(event, args){
+      callback = {success: function(o) {
+        document.getElementById("nowplaying").innerHTML = args[2];
+        setTimeout(refreshCurrent, 2000);
+      }};
+      document.getElementById("nowplaying").innerHTML = "...";
+      xhr("GET", "http://localhost:8900/jump/" + encodeURIComponent(args[2]), callback);
+    });
+  }
+  function basename(str) {
+    if(!str) return '';
+    parts = str.split(/[\\\/]/);
+    return parts[parts.length - 1];
+  }
+  function initNowPlaying() {
+    if(playlist.length == 0 || current == -1) {
+      setTimeout(initNowPlaying, 50);
+      return;
+    }
+    document.getElementById("nowplaying").innerHTML = basename(playlist[current]);
+    document.getElementById("nextplaying").innerHTML = basename(playlist[current+1]) || '(reshuffle)';
+  }
+  function refreshCurrent() {
+    current = -1;
+    getCurrent();
+    initNowPlaying();
+  }
+  YAHOO.util.Event.onContentReady("buttons", initButtons);
+  getPlaylist();
+  getCurrent();
+  YAHOO.util.Event.onContentReady("jump-autocomplete", initJump);
+  YAHOO.util.Event.onContentReady("jump-autocomplete", initNowPlaying);
+  setInterval(refreshCurrent, 30 * 1000);
+/*]]>*/
+</script>
+</html>

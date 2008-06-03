@@ -1,0 +1,28 @@
+- make sure libmp3lame is installed 
+  (ubuntu package liblame-dev)
+
+- make sure PIL is installed
+  (ubuntu package python-imaging)
+
+- make sure build-essentials is installed
+  (ubuntu package build-essentials)
+
+- make sure libshout and dependencies are installed
+- make sure shoutpy and dependencies are installed
+
+- download BASSMOD for linux and put bassmod.h 
+  and libbassmod.so in this directory
+
+- run make
+
+- if necessary, run "export LD_LIBRARY_PATH=." to make the linker
+  check in the local folder for shared objects
+
+- edit the *_settings.py files
+
+- Rescan the playlist for the first time by typing the following:
+  python -c "import playlist; playlist.Playlist().rescan()"
+
+- python radio.py
+
+- go to http://localhost:8900/ for admin stuff
