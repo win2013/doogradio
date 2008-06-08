@@ -165,13 +165,26 @@ int load_lavc( char* file_name ) {
 			bytes_remaining -= frame_length;
 			encoded_data += frame_length;
 			
-			int mp3len = lame_encode_buffer_interleaved(
-				gfp,
-				(short*)decoded_data,
-				decoded_size / ( sizeof(int16_t) * 2 ),
-				mp3buffer,
-				4096
-			);
+			int mp3len = 0;
+			if( audio_file->channels == 2 ) {
+				mp3len = lame_encode_buffer_interleaved(
+					gfp,
+					(short*)decoded_data,
+					decoded_size / ( sizeof(int16_t) * 2 ),
+					mp3buffer,
+					4096
+				);
+			}
+			else {
+				mp3len = lame_encode_buffer(
+					gfp,
+					(short*)decoded_data,
+					(short*)decoded_data,
+					decoded_size / ( sizeof(int16_t) ),
+					mp3buffer,
+					4096
+				);
+			}
 			fwrite( mp3buffer, 1, mp3len, stdout );
 		}
 		
@@ -180,6 +193,8 @@ int load_lavc( char* file_name ) {
 	} while( !last_packet );
 	
 	lame_close(gfp);
+
+	fprintf( stderr, "channels: %i",  audio_file->channels  );
 
 	return( 1 );
 }
