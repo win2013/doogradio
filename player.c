@@ -4,8 +4,14 @@
 
 #include <stdio.h>
 #include <sys/io.h>
+#include <ffmpeg/avcodec.h>
+#include <ffmpeg/avformat.h>
 #include "lame/lame.h"
 #include "./bassmod.h"
+
+#include <ffmpeg/avcodec.h>
+#include <ffmpeg/avformat.h>
+
 #ifdef __MINGW32__
 /* Required header file */
 #include <fcntl.h>
@@ -52,28 +58,138 @@ void load_announce_file() {
 		announce_len = 0;
 	}
 }
-													
+
+// This reencodes a file lavc can handle to 41000hz 2channels 96kbit mp3
+int load_lavc( char* file_name ) {
+	// Prepare lavc.
+	av_register_all();
+	
+	// Prepare lame
+	lame_global_flags* gfp;
+	gfp = lame_init();
+	lame_set_num_channels( gfp, 2 );
+	lame_set_out_samplerate( gfp, 44100 );
+	lame_set_brate( gfp, 96 );
+	lame_set_mode( gfp, 1 );
+	lame_set_bWriteVbrTag( gfp, 0 );
+	
+	// Open the file, grab the right stream. 
+	AVFormatContext* file_info = NULL;
+	if( av_open_input_file( &file_info, file_name, NULL, 0, NULL ) != 0 ) {
+		fprintf( stderr, "Failed to open %s.\n", file_name );
+		return( 0 );
+	}
+	if( av_find_stream_info( file_info ) < 0 ) {
+		fprintf( stderr, "That's not a nice file.\n" );
+		return( 0 );
+	}
+	// Could we just assume that in a normal audio file, we 
+	// need stream 0? Probably...
+	int stream_id = -1;
+	int i = 0;
+	for( i = 0; i < file_info->nb_streams; i++ ) {
+		if( file_info->streams[ i ]->codec->codec_type == CODEC_TYPE_AUDIO ) {
+		stream_id = i;
+		break;
+		}
+	}
+	if( stream_id == -1 ) {
+		return( 0 );
+	}
+	AVCodecContext* audio_file = NULL;
+	audio_file = file_info->streams[ stream_id ]->codec;
+	
+	// Open the appropriate codec.
+	AVCodec* codec = NULL;
+	codec = avcodec_find_decoder( audio_file->codec_id );
+	if( codec == NULL ) {
+		fprintf( stderr, "I have no idea what to do with this.\n" );
+		return( 0 );
+	}
+	if( avcodec_open( audio_file, codec ) < 0 ) {
+		fprintf( stderr, "Something blew.\n" );
+		
+		return( 0 );
+	}
+	
+	// Set lame up for encoding
+	lame_set_in_samplerate( gfp, audio_file->sample_rate );
+	if( lame_init_params( gfp ) < 0 ) {
+		return( 0 );
+	}
+	
+	// Prepare a frame.
+	AVFrame* frame = NULL;
+	frame = avcodec_alloc_frame();
+	if( frame == NULL ) {
+		fprintf( stderr, "This should not have happened.\n" );
+		return( 0 );
+	}
+	
+	// Read one packet.
+	AVPacket packet;
+	int last_packet = 0;
+	do {
+		do{
+		if( av_read_frame( file_info, &packet ) < 0 ) {
+			last_packet = 1;
+		}
+		if( packet.stream_index != stream_id ) {
+			av_free_packet( &packet );
+		}
+		} while( packet.stream_index != stream_id );
+		
+		// We now have a packet. Grab the frames.
+		int bytes_remaining = packet.size;
+		int decoded_size = AVCODEC_MAX_AUDIO_FRAME_SIZE;
+		
+		uint8_t* decoded_data = NULL;
+		decoded_data = malloc( AVCODEC_MAX_AUDIO_FRAME_SIZE );
+		
+		uint8_t* encoded_data = NULL;
+		encoded_data = packet.data;
+		
+		char mp3buffer[ 8192 ];
+		
+		// Decode, reencode frame
+		while( bytes_remaining > 0 ) {
+			int frame_length = -1;
+			decoded_size = AVCODEC_MAX_AUDIO_FRAME_SIZE;
+			frame_length = avcodec_decode_audio(
+				audio_file,
+				(int16_t*)decoded_data,
+				&decoded_size,
+				encoded_data,
+				bytes_remaining
+			);
+			bytes_remaining -= frame_length;
+			encoded_data += frame_length;
+			
+			int mp3len = lame_encode_buffer_interleaved(
+				gfp,
+				(short*)decoded_data,
+				decoded_size / ( sizeof(int16_t) * 2 ),
+				mp3buffer,
+				4096
+			);
+			fwrite( mp3buffer, 1, mp3len, stdout );
+		}
+		
+		free( decoded_data );
+		av_free_packet( &packet );
+	} while( !last_packet );
+	
+	lame_close(gfp);
+
+	return( 1 );
+}
+
 int load(char *filename) {
-	lame_global_flags *gfp;
 	char mp3buffer[8192];
-	FILE *mp3file = 0;
-	mp3data_struct mp3data = {0};	
+	lame_global_flags *gfp;
 	if(!BASSMOD_Init(-3, 44100, 0)) return 1;
 	if(!BASSMOD_MusicLoad(0, filename, 0, 0, BASS_MUSIC_RAMPS | BASS_MUSIC_NONINTER | BASS_MUSIC_STOPBACK)) {
-		char filebuf[100];
-		short leftbuf[1152]; short rightbuf[1152];
-		lame_decode_init();
-		mp3file = fopen(filename, "rb");
-		if(!mp3file) return 1;
-		while(!mp3data.header_parsed) {
-			if(fread(filebuf, 1, sizeof(filebuf), mp3file) < 100)
-				return 1;
-			if(lame_decode1_headers(filebuf, 100, leftbuf, rightbuf, &mp3data) < 0)
-				return 1;
-		}
-		lame_decode_exit();
-		lame_decode_init();
-		fseek(mp3file, 0, SEEK_SET);
+		return( load_lavc( filename ) );
 		
 	}
 	if(isatty(fileno(stdout))) return 1;
@@ -84,82 +200,16 @@ int load(char *filename) {
 	BASSMOD_MusicPlay();
 	gfp = lame_init();
 	lame_set_num_channels(gfp,2);
-	if(mp3file) {
-		lame_set_in_samplerate(gfp,mp3data.samplerate);
-		input_samplerate = 44100;
-	}
-	else
-		lame_set_in_samplerate(gfp,44100);
+	
+	lame_set_in_samplerate(gfp,44100);
 	lame_set_out_samplerate(gfp,44100);
 	lame_set_brate(gfp,96);
 	lame_set_mode(gfp,1);
 	lame_set_bWriteVbrTag(gfp,0);
 	if(lame_init_params(gfp) < 0)
 		return 1;
-	if(mp3file) {
-		char filebuf[50];
-		short leftbuf[1152], rightbuf[1152];
-		while(1) {
-			int nout;
-			int len = fread(filebuf, 1, sizeof(filebuf), mp3file);
-			if(len == 0) { // no more data in file
-				if(lame_decode(filebuf, len, leftbuf, rightbuf) <= 0) {
-					// but only exit after lame_decode stops returning data
-					if(announce_file && (int)(announce_pos*2) < announce_len) {
-						// song is over, but announcement isn't, so pretend we got 1152 samples of silence
-						nout = 1152;
-						memset(leftbuf, 0, nout);
-						memset(rightbuf, 0, nout);
-						//fprintf(stderr, "file ended, generating 1152 more samples");
-					}
-					else {
-						//fprintf(stderr, "nout < 0");
-						lame_decode_exit();
-						break;
-					}
-				}
-			}
-			else {
-				nout = lame_decode(filebuf, len, leftbuf, rightbuf);
-				if(nout < 0) {
-					if(announce_file && (int)(announce_pos*2) < announce_len) {
-						// song is over, but announcement isn't, so pretend we got 1152 samples of silence
-						nout = 1152;
-						memset(leftbuf, 0, nout);
-						memset(rightbuf, 0, nout);
-					}
-					else {
-						//fprintf(stderr, "nout < 0");
-						lame_decode_exit();
-						break;
-					}
-				}
-				if(nout == 0) continue;
-			}
-			
-			// overdub
-			if(announce_file) {
-				int i;
-				for(i=0;i<nout;i++) {
-					leftbuf[i] /= 3;
-					rightbuf[i] /= 3;
-					if((int)(announce_pos*2) < announce_len) {
-						leftbuf[i] += announce_data[(int)announce_pos];
-						rightbuf[i] += announce_data[(int)announce_pos];
-						announce_pos+=16000.0/input_samplerate;
-					}
-				}
-			}
-			
-			if(mp3data.stereo == 2)
-				nout = lame_encode_buffer(gfp, leftbuf, rightbuf, nout, mp3buffer, 4096);
-			else
-				nout = lame_encode_buffer(gfp, leftbuf, leftbuf, nout, mp3buffer, 4096);
-			if(nout != fwrite(mp3buffer, 1, nout, stdout))
-				goto DONE;
-		}
-	}
-	else while(BASSMOD_MusicIsActive() == BASS_ACTIVE_PLAYING) {
+	
+	while(BASSMOD_MusicIsActive() == BASS_ACTIVE_PLAYING) {
 		int c; int i; short bassbuffer[300*2];
 		short leftbuffer[300], rightbuffer[300];
 		// bass is interlaced, lame isn't
@@ -179,18 +229,17 @@ int load(char *filename) {
 	fwrite(mp3buffer, 1, c, stdout);
 	}
 	DONE:
-	if(mp3file) fclose(mp3file);
 	lame_close(gfp);
 }
 
-int usage() {
-	printf("usage: %s filename [announce]");
+int usage(char* appname) {
+	printf("usage: %s filename [announce]", appname);
 	return 1;
 }
 
 int main(int argc, char *argv[]) {
 	if(argc == 1)
-		return usage();
+		return usage(argv[0]);
 	if(argc == 2)
 		return load(argv[1]);
 	if(argc == 3) {
@@ -199,6 +248,6 @@ int main(int argc, char *argv[]) {
 		load_announce_file();
 		return load(argv[1]);
 	}
-	return usage();
+	return usage(argv[0]);
 }
 
