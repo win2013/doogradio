@@ -9,7 +9,7 @@
 
 - make sure libshout and dependencies are installed
 - make sure shoutpy and dependencies are installed
-- make sure lavcodec, lavformat and their header files are installed
+- make sure libavcodec, libavformat and their header files are installed
 
 - download BASSMOD for linux and put bassmod.h 
   and libbassmod.so in this directory
