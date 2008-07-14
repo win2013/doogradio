@@ -155,7 +155,7 @@ int load_lavc( char* file_name ) {
 		while( bytes_remaining > 0 ) {
 			int frame_length = -1;
 			decoded_size = AVCODEC_MAX_AUDIO_FRAME_SIZE;
-			frame_length = avcodec_decode_audio(
+			frame_length = avcodec_decode_audio2(
 				audio_file,
 				(int16_t*)decoded_data,
 				&decoded_size,
@@ -193,8 +193,6 @@ int load_lavc( char* file_name ) {
 	} while( !last_packet );
 	
 	lame_close(gfp);
-
-	fprintf( stderr, "channels: %i",  audio_file->channels  );
 
 	return( 1 );
 }
