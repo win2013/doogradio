@@ -17,8 +17,6 @@
 #include <fcntl.h>
 #endif
 
-
-
 FILE *announce_file = 0;
 short *announce_data = 0;
 int announce_len = 0;
@@ -80,7 +78,7 @@ int load_lavc( char* file_name ) {
 		return( 0 );
 	}
 	if( av_find_stream_info( file_info ) < 0 ) {
-		fprintf( stderr, "That's not a nice file.\n" );
+		fprintf( stderr, "That's a file too damaged to play.\n" );
 		return( 0 );
 	}
 	// Could we just assume that in a normal audio file, we 
@@ -103,18 +101,18 @@ int load_lavc( char* file_name ) {
 	AVCodec* codec = NULL;
 	codec = avcodec_find_decoder( audio_file->codec_id );
 	if( codec == NULL ) {
-		fprintf( stderr, "I have no idea what to do with this.\n" );
+		fprintf( stderr, "This is not actually a file lavc can play.\n" );
 		return( 0 );
 	}
 	if( avcodec_open( audio_file, codec ) < 0 ) {
-		fprintf( stderr, "Something blew.\n" );
-		
+		fprintf( stderr, "Lavc-internal error.\n" );
 		return( 0 );
 	}
 	
 	// Set lame up for encoding
 	lame_set_in_samplerate( gfp, audio_file->sample_rate );
 	if( lame_init_params( gfp ) < 0 ) {
+		fprintf( stderr, "Lame-internal error.\n" );
 		return( 0 );
 	}
 	
@@ -122,7 +120,7 @@ int load_lavc( char* file_name ) {
 	AVFrame* frame = NULL;
 	frame = avcodec_alloc_frame();
 	if( frame == NULL ) {
-		fprintf( stderr, "This should not have happened.\n" );
+		fprintf( stderr, "Out of memory.\n" );
 		return( 0 );
 	}
 	
@@ -131,13 +129,18 @@ int load_lavc( char* file_name ) {
 	int last_packet = 0;
 	do {
 		do{
-		if( av_read_frame( file_info, &packet ) < 0 ) {
-			last_packet = 1;
+			if( av_read_frame( file_info, &packet ) < 0 ) {
+				last_packet = 1;
+			}
+			if( packet.stream_index != stream_id ) {
+				av_free_packet( &packet );
+			}
+		} while( (packet.stream_index != stream_id) && !last_packet );
+		
+		// Do not try to decode the last packet if it's not from this stream
+		if( last_packet && (packet.stream_index != stream_id) ) {
+			break;
 		}
-		if( packet.stream_index != stream_id ) {
-			av_free_packet( &packet );
-		}
-		} while( packet.stream_index != stream_id );
 		
 		// We now have a packet. Grab the frames.
 		int bytes_remaining = packet.size;
@@ -150,7 +153,7 @@ int load_lavc( char* file_name ) {
 		encoded_data = packet.data;
 		
 		char mp3buffer[ 8192 ];
-		
+				
 		// Decode, reencode frame
 		while( bytes_remaining > 0 ) {
 			int frame_length = -1;
@@ -246,7 +249,7 @@ int load(char *filename) {
 }
 
 int usage(char* appname) {
-	printf("usage: %s filename [announce]", appname);
+	printf("usage: %s filename [announce]\n", appname);
 	return 1;
 }
 
