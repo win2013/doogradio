@@ -20,3 +20,7 @@ announcer = '"C:\\program files\\cepstral\\bin\\swift\" -n Emily -p audio/deadai
 
 rescan_title = "-= Regenerating Playlist... =-"
 rescan_song = "./Regen.mp3"
+
+# Admin panel socket settings
+control_host = "localhost"
+control_port = 8900

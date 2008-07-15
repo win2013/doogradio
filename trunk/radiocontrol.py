@@ -9,6 +9,8 @@ from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from urllib import unquote
 import re, time
 
+import radio_settings
+
 # queue for communication between radio and control threads
 messages = None
 
@@ -80,7 +82,7 @@ class RadioControlThread(Thread):
         BaseHTTPRequestHandler.log_message = self.do_nothing
         HTTPServer.handle_error = self.do_nothing 
        
-        server = HTTPServer(('localhost', 8900), RadioControlHandler)
+        server = HTTPServer((radio_settings.control_host, radio_settings.control_port), RadioControlHandler)
         try:
             server.serve_forever()
         except (KeyboardInterrupt, ShutdownException):
