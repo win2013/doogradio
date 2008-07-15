@@ -38,7 +38,7 @@ def connect():
     s.set_audio_info( "bitrate", str( stream_settings.bitrate ) )
     s.set_audio_info( "samplerate", str( stream_settings.samplerate ) )
     s.set_audio_info( "channels", str( stream_settings.channels ) )
-    
+
     s.open()
         
 # update the metadata using a new socket -- i guess there's no other useful keys besides "song"
@@ -75,7 +75,10 @@ def send(buf):
             except:
                 recon_success = 0
                 # nada
-
+    
+    # Before syncing, give other threads a chance to run
+    # Pythons threading is crap.
+    time.sleep( 0.00001 )
     s.sync()
 
 def close():
