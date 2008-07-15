@@ -81,8 +81,8 @@ int load_lavc( char* file_name ) {
 		fprintf( stderr, "That's a file too damaged to play.\n" );
 		return( 0 );
 	}
-	// Could we just assume that in a normal audio file, we 
-	// need stream 0? Probably...
+	
+	// Find the audio stream.
 	int stream_id = -1;
 	int i = 0;
 	for( i = 0; i < file_info->nb_streams; i++ ) {
