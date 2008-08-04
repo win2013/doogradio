@@ -11,6 +11,7 @@
 
 #include <ffmpeg/avcodec.h>
 #include <ffmpeg/avformat.h>
+#include <ffmpeg/avutil.h>
 
 #ifdef __MINGW32__
 /* Required header file */
@@ -61,6 +62,9 @@ void load_announce_file() {
 int load_lavc( char* file_name ) {
 	// Prepare lavc.
 	av_register_all();
+	
+	// "Okay lavc now shut up."
+	av_log_set_level( -1 );
 	
 	// Prepare lame
 	lame_global_flags* gfp;
