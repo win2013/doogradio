@@ -24,10 +24,11 @@
         <div class="yui-b">
           <h2>Currently playing: <span id="nowplaying"></span></h2>
           <h3>Next up: <span id="nextplaying"></span></h3>
-          <div id="jump-autocomplete" style="width:300px">
+          <div id="jump-autocomplete" style="width:500px">
             <label for="jump">Jump to song:</label>
-             <input type="text" id="jump" name="jump" />
+             <input type="text" id="jump" name="jump" />[<input type="checkbox" id="enqueue" value="enqueue" name="enqueue" /> queue only]
              <div id="jump-container"></div>
+             
           </div>
         </div>
       </div>
@@ -110,7 +111,10 @@
         setTimeout(refreshCurrent, 2000);
       }};
       document.getElementById("nowplaying").innerHTML = "...";
-      xhr("GET", "http://localhost:8900/jump/" + encodeURIComponent(args[2]), callback);
+      if(document.getElementById("enqueue").checked)
+        xhr("GET", "http://localhost:8900/enqueue/" + encodeURIComponent(args[2]), callback);
+      else
+        xhr("GET", "http://localhost:8900/jump/" + encodeURIComponent(args[2]), callback);
     });
   }
   function basename(str) {
@@ -125,6 +129,8 @@
     }
     document.getElementById("nowplaying").innerHTML = basename(playlist[current]);
     document.getElementById("nextplaying").innerHTML = basename(playlist[current+1]) || '(reshuffle)';
+    if(document.getElementById("nextplaying").innerHTML != "(reshuffle)")
+      document.getElementById("nextplaying").innerHTML += "<br /><small>then: " + (basename(playlist[current+2]) || '(reshuffle)') + "</small>";
   }
   function refreshCurrent() {
     current = -1;
