@@ -49,6 +49,9 @@ def handle_messages():
         elif msg[0] == "jump":
             if playlist.jump(msg[1]):
                 raise RestartMessage
+        elif msg[0] == "enqueue":
+            if playlist.enqueue_after_current(msg[1]):
+                raise RestartMessage
         elif msg[0] == "rescan":
             # the rescan is taking place in another thread
             # just start playing the song and then restart when it's done

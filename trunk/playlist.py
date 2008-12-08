@@ -46,6 +46,14 @@ class Playlist:
             return True
         except ValueError:
             return False
+            
+    def enqueue_after_current(self, path):
+        try:
+            self.playlist.remove(path)
+            self.playlist.insert(self.position + 1, path)
+            return True
+        except ValueError:
+            return False
 
     def reshuffle(self):
         self.position = 0
