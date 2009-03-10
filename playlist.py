@@ -27,7 +27,7 @@ class Playlist:
     
     # scan all the song directories for files and repopulate the playlist
     def rescan(self, dirs=playlist_settings.scan_directories, extensions=playlist_settings.scan_extensions, save_to=playlist_settings.filename):
-        self.playlist = []
+        del self.playlist[:]
         extensions = dict([(ext, 1) for ext in extensions])
         for dir in dirs:
             for (dirpath, dirnames, filenames) in os.walk(dir):
