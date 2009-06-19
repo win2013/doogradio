@@ -1,10 +1,10 @@
-host = "your.hostname.org"
+host = "localhost"
 port = 8000
-mount_point = '/mountpoint.mp3'
-password = 'password'
-name = 'Doogtopia Radio Linux'
+mount_point = '/halcycast.mp3'
+password = 'muh'
+name = 'halcycast'
 url = 'http://doogtopia.iiichan.net'
-genre = 'Retro'
+genre = 'Awesome'
 samplerate = 44100
 bitrate = 96
 channels = 2

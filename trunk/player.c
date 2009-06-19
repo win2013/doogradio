@@ -125,6 +125,31 @@ int load_modplug(char* filename) {
 	char mp3buffer[8192];
 	lame_global_flags *gfp;
 
+	// Check extensions for known good.
+	// Also, extensions at beginning are fine.
+	char extension[256];
+    	char* peek = filename + strlen (filename) - 1;
+    	while(peek >= filename) {
+        	if(*peek == '.') {
+			strncpy (extension, peek + 1, 256);
+			extension[255] = '\0';
+			break;
+        	}
+        	peek--;
+	}
+	int i = 0;
+	for( i = 0; i < strlen( extension ); i++ ) {
+		extension[ i ] = tolower( extension[ i ] );
+	}
+	if( !(
+		strcmp( extension, "mod" ) == 0 ||
+		strcmp( extension, "it" ) == 0 ||
+		strcmp( extension, "s3m" ) == 0 ||
+		strcmp( extension, "xm" ) == 0
+	) ) {
+		return( 0 );
+	}
+	
 	// Load some mod file into memory.
 	int mod_file = open( filename, O_RDONLY );
 	off_t mod_size = lseek( mod_file, 0, SEEK_END );
