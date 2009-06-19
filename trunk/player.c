@@ -1,17 +1,30 @@
-#include <stdlib.h>  //added newly
-#include <string.h> //also added
-#include <unistd.h> //also
+#define USE_MODPLUG
+#undef USE_BASSMOD
+#define USE_LAVC
+
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #include <stdio.h>
 #include <sys/io.h>
-#include <ffmpeg/avcodec.h>
-#include <ffmpeg/avformat.h>
-#include "lame/lame.h"
-#include "./bassmod.h"
 
+#include "lame/lame.h"
+
+#ifdef USE_BASSMOD
+#include "./bassmod.h"
+#endif
+
+#ifdef USE_MODPLUG
+#include <libmodplug/modplug.h>
+#endif
+
+#ifdef USE_LAVC
 #include <ffmpeg/avcodec.h>
 #include <ffmpeg/avformat.h>
 #include <ffmpeg/avutil.h>
+#endif
 
 #ifdef __MINGW32__
 /* Required header file */
@@ -22,7 +35,6 @@ FILE *announce_file = 0;
 short *announce_data = 0;
 int announce_len = 0;
 double announce_pos = 0;
-int input_samplerate = 44100;
 
 // here is the worst .wav reading code ever
 // oh by the way i hope your wav file is 16bit 44khz mono!
@@ -58,6 +70,119 @@ void load_announce_file() {
 	}
 }
 
+#ifdef USE_BASSMOD
+int load_libbassmod(char* filename) {
+	char mp3buffer[8192];
+	lame_global_flags *gfp;
+	if(!BASSMOD_Init(-3, 44100, 0)) return 1;
+	if(!BASSMOD_MusicLoad(0, filename, 0, 0, BASS_MUSIC_RAMPS | BASS_MUSIC_NONINTER | BASS_MUSIC_STOPBACK)) {
+		return( 0 );
+		
+	}
+	if(isatty(fileno(stdout))) return 1;
+#ifdef __MINGW32__
+	/* Switch to binary mode */
+	_setmode(_fileno(stdout),_O_BINARY);
+#endif	
+	BASSMOD_MusicPlay();
+	gfp = lame_init();
+	lame_set_num_channels(gfp,2);
+	
+	lame_set_in_samplerate(gfp,44100);
+	lame_set_out_samplerate(gfp,44100);
+	lame_set_brate(gfp,96);
+	lame_set_mode(gfp,1);
+	lame_set_bWriteVbrTag(gfp,0);
+	if(lame_init_params(gfp) < 0)
+		return 1;
+	
+	while(BASSMOD_MusicIsActive() == BASS_ACTIVE_PLAYING) {
+		int c; int i; short bassbuffer[300*2];
+		short leftbuffer[300], rightbuffer[300];
+		// bass is interlaced, lame isn't
+		BASSMOD_MusicDecode(bassbuffer, 300*2*2);
+		for(i=0;i<600;i++) {
+			if(i & 1)
+				rightbuffer[i >> 1] = bassbuffer[i];
+			else
+				leftbuffer[i >> 1] = bassbuffer[i];
+		}
+		c = lame_encode_buffer(gfp, leftbuffer, rightbuffer, 300, mp3buffer, 4096);
+		if(c != fwrite(mp3buffer, 1, c, stdout))
+			goto DONE;
+	}
+	{ int c;
+	c = lame_encode_flush(gfp, mp3buffer, 8192);
+	fwrite(mp3buffer, 1, c, stdout);
+	}
+	DONE:
+	lame_close(gfp);
+}
+#endif
+
+#ifdef USE_MODPLUG
+int load_modplug(char* filename) {
+	char mp3buffer[8192];
+	lame_global_flags *gfp;
+
+	// Load some mod file into memory.
+	int mod_file = open( filename, O_RDONLY );
+	off_t mod_size = lseek( mod_file, 0, SEEK_END );
+	lseek( mod_file, 0, SEEK_SET );
+	unsigned char* mod_data = (unsigned char*)malloc( mod_size );
+	read( mod_file, mod_data, mod_size );
+	close( mod_file );
+
+	// Load mod file into modplug.
+	ModPlugFile* modplug_file = ModPlug_Load( mod_data, mod_size );
+
+	// Failed?
+	if( !modplug_file ) {
+		return( 0 );
+	}
+
+	// Set up modplug things. (ULTRABASS!)
+	ModPlug_Settings modplug_settings;
+	ModPlug_GetSettings( &modplug_settings );
+	modplug_settings.mFlags = MODPLUG_ENABLE_OVERSAMPLING;
+	modplug_settings.mResamplingMode = MODPLUG_RESAMPLE_FIR;
+	modplug_settings.mLoopCount = 1;
+	ModPlug_SetSettings( &modplug_settings );
+
+	if(isatty(fileno(stdout))) return 1;
+#ifdef __MINGW32__
+	/* Switch to binary mode */
+	_setmode(_fileno(stdout),_O_BINARY);
+#endif	
+	gfp = lame_init();
+	lame_set_num_channels(gfp,modplug_settings.mChannels);
+	lame_set_in_samplerate(gfp,modplug_settings.mFrequency);
+	lame_set_out_samplerate(gfp,44100);
+	lame_set_brate(gfp,96);
+	lame_set_mode(gfp,1);
+	lame_set_bWriteVbrTag(gfp,0);
+
+	if(lame_init_params(gfp) < 0)
+		return 1;
+
+	short modbuffer[1024];
+	size_t read_bytes = ModPlug_Read( modplug_file, modbuffer, 256 );
+	while(read_bytes != 0) {
+		size_t c = lame_encode_buffer_interleaved(gfp, modbuffer, read_bytes / (sizeof(short)*2), mp3buffer, 4049);
+		fwrite(mp3buffer, 1, c, stdout);
+		read_bytes = ModPlug_Read( modplug_file, modbuffer, 256 );
+	}
+	size_t c;
+	c = lame_encode_flush(gfp, mp3buffer, 8192);
+	fwrite(mp3buffer, 1, c, stdout);
+
+	lame_close(gfp);
+
+	return( 1 );
+}
+#endif
+
+#ifdef USE_LAVC
 // This reencodes a file lavc can handle to 41000hz 2channels 96kbit mp3
 int load_lavc( char* file_name ) {
 	// Prepare lavc.
@@ -82,7 +207,6 @@ int load_lavc( char* file_name ) {
 		return( 0 );
 	}
 	if( av_find_stream_info( file_info ) < 0 ) {
-		fprintf( stderr, "That's a file too damaged to play.\n" );
 		return( 0 );
 	}
 	
@@ -105,7 +229,7 @@ int load_lavc( char* file_name ) {
 	AVCodec* codec = NULL;
 	codec = avcodec_find_decoder( audio_file->codec_id );
 	if( codec == NULL ) {
-		fprintf( stderr, "This is not actually a file lavc can play.\n" );
+		fprintf( stderr, "Tried lavc but this is not actually a file lavc can play.\n" );
 		return( 0 );
 	}
 	if( avcodec_open( audio_file, codec ) < 0 ) {
@@ -203,53 +327,31 @@ int load_lavc( char* file_name ) {
 
 	return( 1 );
 }
+#endif
 
 int load(char *filename) {
-	char mp3buffer[8192];
-	lame_global_flags *gfp;
-	if(!BASSMOD_Init(-3, 44100, 0)) return 1;
-	if(!BASSMOD_MusicLoad(0, filename, 0, 0, BASS_MUSIC_RAMPS | BASS_MUSIC_NONINTER | BASS_MUSIC_STOPBACK)) {
-		return( load_lavc( filename ) );
-		
+	int result = 0;
+	#ifdef USE_BASSMOD
+	result = load_bassmod( filename );
+	#endif
+
+	#ifdef USE_MODPLUG
+	if( result == 0 ) {
+		result = load_modplug( filename );
 	}
-	if(isatty(fileno(stdout))) return 1;
-#ifdef __MINGW32__
-	/* Switch to binary mode */
-	_setmode(_fileno(stdout),_O_BINARY);
-#endif	
-	BASSMOD_MusicPlay();
-	gfp = lame_init();
-	lame_set_num_channels(gfp,2);
-	
-	lame_set_in_samplerate(gfp,44100);
-	lame_set_out_samplerate(gfp,44100);
-	lame_set_brate(gfp,96);
-	lame_set_mode(gfp,1);
-	lame_set_bWriteVbrTag(gfp,0);
-	if(lame_init_params(gfp) < 0)
-		return 1;
-	
-	while(BASSMOD_MusicIsActive() == BASS_ACTIVE_PLAYING) {
-		int c; int i; short bassbuffer[300*2];
-		short leftbuffer[300], rightbuffer[300];
-		// bass is interlaced, lame isn't
-		BASSMOD_MusicDecode(bassbuffer, 300*2*2);
-		for(i=0;i<600;i++) {
-			if(i & 1)
-				rightbuffer[i >> 1] = bassbuffer[i];
-			else
-				leftbuffer[i >> 1] = bassbuffer[i];
-		}
-		c = lame_encode_buffer(gfp, leftbuffer, rightbuffer, 300, mp3buffer, 4096);
-		if(c != fwrite(mp3buffer, 1, c, stdout))
-			goto DONE;
+	#endif
+
+	#ifdef USE_LAVC
+	if( result == 0 ) {
+		result = load_lavc( filename );
 	}
-	{ int c;
-	c = lame_encode_flush(gfp, mp3buffer, 8192);
-	fwrite(mp3buffer, 1, c, stdout);
+	#endif
+
+	if( result == 0 ) {
+		fprintf( stderr, "That's a file I cannot play.\n" );
 	}
-	DONE:
-	lame_close(gfp);
+
+	return( result );
 }
 
 int usage(char* appname) {
