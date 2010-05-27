@@ -8,7 +8,7 @@
 #include <fcntl.h>
 
 #include <stdio.h>
-#include <sys/io.h>
+//#include <sys/io.h>
 
 #include "lame/lame.h"
 
@@ -21,9 +21,9 @@
 #endif
 
 #ifdef USE_LAVC
-#include <ffmpeg/avcodec.h>
-#include <ffmpeg/avformat.h>
-#include <ffmpeg/avutil.h>
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavutil/avutil.h>
 #endif
 
 #ifdef __MINGW32__
