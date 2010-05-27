@@ -127,6 +127,11 @@ int load_modplug(char* filename) {
 	char mp3buffer[8192];
 	lame_global_flags *gfp;
 
+#ifdef __MINGW32__
+	/* Switch to binary mode */
+	_setmode(_fileno(stdout),_O_BINARY);
+#endif
+
 	// Check extensions for known good.
 	// Also, extensions at beginning are fine.
 	char extension[256];
@@ -212,6 +217,12 @@ int load_modplug(char* filename) {
 #ifdef USE_LAVC
 // This reencodes a file lavc can handle to 41000hz 2channels 96kbit mp3
 int load_lavc( char* file_name ) {
+
+#ifdef __MINGW32__
+	/* Switch to binary mode */
+	_setmode(_fileno(stdout),_O_BINARY);
+#endif
+
 	// Prepare lavc.
 	av_register_all();
 
