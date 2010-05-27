@@ -17,7 +17,7 @@
 - run make
 
 - if necessary, run "export LD_LIBRARY_PATH=." to make the linker
-  check in the local folder for shared objects. dooh.sh will do this
+  check in the local folder for shared objects. doog.sh will do this
   for you.
 
 - edit the *_settings.py files
