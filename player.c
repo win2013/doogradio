@@ -118,6 +118,7 @@ int load_libbassmod(char* filename) {
 	}
 	DONE:
 	lame_close(gfp);
+	return( 1 );
 }
 #endif
 
