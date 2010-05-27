@@ -365,7 +365,7 @@ int load_lavc( char* file_name ) {
 int load(char *filename) {
 	int result = 0;
 	#ifdef USE_BASSMOD
-	result = load_bassmod( filename );
+	result = load_libbassmod( filename );
 	#endif
 
 	#ifdef USE_MODPLUG
