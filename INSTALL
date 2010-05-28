@@ -1,16 +1,17 @@
 - make sure libmp3lame is installed 
-  (ubuntu package liblame-dev)
+  (ubuntu package libmp3lame-dev)
   (windows: download source, use make -fMakefile.unix UNAME=MSDOS)
 
 - make sure PIL is installed
   (ubuntu package python-imaging)
 
 - make sure build-essentials is installed
-  (ubuntu package build-essentials)
+  (ubuntu package build-essential)
 
 
 - FOR MP3 SUPPORT:
 - make sure libavcodec, libavformat and their header files are installed
+(ubuntu packages libavcodec-dev, libavformat-dev)
 (windows: http://ffmpeg.arrozcru.org/autobuilds/)
 
 - FOR MOD SUPPORT:
