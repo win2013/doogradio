@@ -1,5 +1,6 @@
 - make sure libmp3lame is installed 
   (ubuntu package liblame-dev)
+  (windows: download source, use make -fMakefile.unix UNAME=MSDOS)
 
 - make sure PIL is installed
   (ubuntu package python-imaging)
@@ -7,11 +8,10 @@
 - make sure build-essentials is installed
   (ubuntu package build-essentials)
 
-- make sure libshout and dependencies are installed
-- make sure shoutpy and dependencies are installed
 
 - FOR MP3 SUPPORT:
 - make sure libavcodec, libavformat and their header files are installed
+(windows: http://ffmpeg.arrozcru.org/autobuilds/)
 
 - FOR MOD SUPPORT:
 - make sure libmodplug (ubuntu package libmodplug-dev) is installed
