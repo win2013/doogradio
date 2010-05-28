@@ -14,6 +14,10 @@
 
 #ifdef USE_BASSMOD
 #include "./bassmod.h"
+#define __USE_LARGEFILE64
+#define _LARGEFILE_SOURCE
+#define _LARGEFILE64_SOURCE
+#include <sys/stat.h>
 #endif
 
 #ifdef USE_MODPLUG
@@ -75,8 +79,12 @@ void load_announce_file() {
 int load_libbassmod(char* filename) {
 	char mp3buffer[8192];
 	lame_global_flags *gfp;
+	struct stat64 st;
 	if(!BASSMOD_Init(-3, 44100, 0)) return 1;
-	if(!BASSMOD_MusicLoad(0, filename, 0, 0, BASS_MUSIC_RAMPS | BASS_MUSIC_NONINTER | BASS_MUSIC_STOPBACK)) {
+	if(stat64(filename, &st) == -1) { 
+		return 0;
+	}
+	if(!BASSMOD_MusicLoad(0, filename, 0, st.st_size, BASS_MUSIC_RAMPS | BASS_MUSIC_NONINTER | BASS_MUSIC_STOPBACK)) {
 		return( 0 );
 
 	}
