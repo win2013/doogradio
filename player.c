@@ -33,6 +33,7 @@
 #ifdef __MINGW32__
 /* Required header file */
 #include <fcntl.h>
+#define stat64 stat
 #endif
 
 FILE *announce_file = 0;
@@ -340,6 +341,7 @@ int load_lavc( char* file_name ) {
 				encoded_data,
 				bytes_remaining
 			);
+			if(frame_length < 0) {bytes_remaining--; encoded_data++; continue;}
 			bytes_remaining -= frame_length;
 			encoded_data += frame_length;
 
