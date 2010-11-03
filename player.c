@@ -84,7 +84,7 @@ int load_libbassmod(char* filename) {
 	struct stat st;
 	if(!BASSMOD_Init(-3, 44100, 0)) return 1;
 	if(stat(filename, &st) == -1) { 
-		perror("stat");
+		// perror("stat");  //Don't use this if you're not in a POSIX environment, it's for error checking
 		return 0;
 	} 
 
