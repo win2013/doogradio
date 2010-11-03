@@ -77,17 +77,19 @@ void load_announce_file() {
 }
 
 #ifdef USE_BASSMOD
+
 int load_libbassmod(char* filename) {
 	char mp3buffer[8192];
 	lame_global_flags *gfp;
-	struct stat64 st;
+	struct stat st;
 	if(!BASSMOD_Init(-3, 44100, 0)) return 1;
-	if(stat64(filename, &st) == -1) { 
+	if(stat(filename, &st) == -1) { 
+		perror("stat");
 		return 0;
-	}
+	} 
+
 	if(!BASSMOD_MusicLoad(0, filename, 0, st.st_size, BASS_MUSIC_RAMPS | BASS_MUSIC_NONINTER | BASS_MUSIC_STOPBACK)) {
 		return( 0 );
-
 	}
 	if(isatty(fileno(stdout))) return 1;
 #ifdef __MINGW32__
@@ -129,6 +131,9 @@ int load_libbassmod(char* filename) {
 	lame_close(gfp);
 	return( 1 );
 }
+
+
+
 #endif
 
 #ifdef USE_MODPLUG
@@ -404,6 +409,7 @@ int load(char *filename) {
 
 	if( result == 0 ) {
 		fprintf( stderr, "That's a file I cannot play.\n" );
+
 	}
 
 	return( result );
